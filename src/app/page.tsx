@@ -24,11 +24,11 @@ export default function Home() {
               <Link href="/login">Login</Link>
             </Button>
             <Button asChild className="bg-green-500 text-black hover:bg-green-600">
-              <Link href="/register">Get Started</Link>
+              <Link href="/login">Get Started</Link>
             </Button>
           </div>
           <Button variant="ghost" className="md:hidden">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
           </Button>
         </div>
       </nav>
@@ -44,7 +44,7 @@ export default function Home() {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 mt-4">
           <Button asChild size="lg" className="bg-green-500 text-black hover:bg-green-600">
-            <Link href="/register">Get Started</Link>
+            <Link href="/login">Get Started</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
             <Link className="text-black" href="#how-it-works">Learn More</Link>
