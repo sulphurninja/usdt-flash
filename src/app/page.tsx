@@ -10,10 +10,8 @@ export default function Home() {
       {/* Navbar */}
       <nav className="border-b border-white/10 px-6 py-4">
         <div className="container mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-              <span className="text-black font-bold">F</span>
-            </div>
+        <div className="flex items-center gap-2">
+         <img  src='/logo.png' className="h-12"/>
             <span className="font-bold text-xl">FlashUSDT</span>
           </div>
           <div className="hidden md:flex gap-6 items-center">
