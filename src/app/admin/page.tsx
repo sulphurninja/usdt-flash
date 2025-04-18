@@ -307,9 +307,10 @@ export default function AdminPanel() {
       const bnbBalanceFormatted = ethers.formatEther(bnbBalance);
       console.log("BNB balance:", bnbBalanceFormatted);
 
-      const minBnbForGas = ethers.parseEther("0.005"); // 0.005 BNB should be enough for gas
+      const minBnbForGas = ethers.parseEther("0.0005"); // much more accurate
+
       if (bnbBalance < minBnbForGas) {
-        toast.error(`Insufficient BNB for gas fees. You have ${bnbBalanceFormatted} BNB, but you need at least 0.005 BNB for transaction fees.`);
+        toast.error(`Insufficient BNB for gas fees. You have ${bnbBalanceFormatted} BNB, but you need at least 0.0005 BNB for transaction fees.`);
         return;
       }
 
@@ -698,9 +699,9 @@ export default function AdminPanel() {
                   </div>
                 </div>
 
-                {(bnbBalance && parseFloat(bnbBalance) < 0.005) && (
+                {(bnbBalance && parseFloat(bnbBalance) < 0.0005) && (
                   <div className="mt-3 p-2 bg-red-900/20 border border-red-800/30 rounded text-red-400 text-xs">
-                    Warning: Low BNB balance. You need at least 0.005 BNB for gas fees.
+                    Warning: Low BNB balance. You need at least 0.0005 BNB for gas fees.
                   </div>
                 )}
               </div>
