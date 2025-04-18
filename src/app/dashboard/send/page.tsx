@@ -107,9 +107,7 @@ export default function SendFlashUSDT() {
       <nav className="border-b border-white/10 px-6 py-4">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-              <span className="text-black font-bold">F</span>
-            </div>
+          <img  src="/logo.png" className="h-12"/>
             <span className="font-bold text-xl">FlashUSDT</span>
           </div>
           <div className="flex items-center gap-4">
@@ -212,7 +210,7 @@ export default function SendFlashUSDT() {
           </p>
           <div className="text-xs text-zinc-500">
             Each 1 FUSDT sent requires 1 bandwidth.
-            
+
           </div>
         </div>
       </div>

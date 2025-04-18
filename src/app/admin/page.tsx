@@ -27,6 +27,65 @@ export default function AdminPanel() {
   const [sending, setSending] = useState(false);
   const [sendingReal, setSendingReal] = useState(false);
   const [searchEmail, setSearchEmail] = useState("");
+  // Add these state variables to your component
+  const [bnbBalance, setBnbBalance] = useState<string | null>(null);
+  const [usdtBalance, setUsdtBalance] = useState<string | null>(null);
+  const [checkingBalance, setCheckingBalance] = useState(false);
+
+
+  const checkBalances = async () => {
+    if (typeof window === "undefined" || !(window as any).ethereum) {
+      toast.error("No wallet found");
+      return;
+    }
+
+    setCheckingBalance(true);
+    try {
+      // Request account access
+      const accounts = await (window as any).ethereum.request({
+        method: "eth_requestAccounts"
+      });
+      const account = accounts[0];
+
+      // Check if we need to switch to BSC
+      const chainId = await (window as any).ethereum.request({ method: "eth_chainId" });
+      if (chainId !== "0x38") {
+        toast.loading("Please switch to Binance Smart Chain to see balances");
+        setBnbBalance(null);
+        setUsdtBalance(null);
+        return;
+      }
+
+      // Create provider and get balances
+      const provider = new ethers.BrowserProvider((window as any).ethereum);
+
+      // Get BNB balance
+      const bnbBal = await provider.getBalance(account);
+      const bnbFormatted = parseFloat(ethers.formatEther(bnbBal)).toFixed(4);
+      setBnbBalance(bnbFormatted);
+
+      // Get USDT balance
+      const usdtContract = new ethers.Contract(
+        "0x55d398326f99059fF775485246999027B3197955",
+        ["function balanceOf(address) view returns (uint256)", "function decimals() view returns (uint8)"],
+        provider
+      );
+
+      const decimals = await usdtContract.decimals();
+      const usdtBal = await usdtContract.balanceOf(account);
+      const usdtFormatted = parseFloat(ethers.formatUnits(usdtBal, decimals)).toFixed(2);
+      setUsdtBalance(usdtFormatted);
+
+      toast.success("Balances updated");
+    } catch (error: any) {
+      console.error("Error checking balances:", error);
+      toast.error("Failed to check balances");
+      setBnbBalance(null);
+      setUsdtBalance(null);
+    } finally {
+      setCheckingBalance(false);
+    }
+  };
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -99,9 +158,24 @@ export default function AdminPanel() {
     }
   };
 
+  // ... existing code ...
+
+  // ... existing code ...
+
+
+  // ... existing code ...
+
+  // ... existing code ...
+
   const sendRealUSDT = async () => {
     if (!recipient || !usdtAmount) {
       toast.error("Enter recipient address and USDT amount");
+      return;
+    }
+
+    // Validate recipient address
+    if (!ethers.isAddress(recipient)) {
+      toast.error("Invalid recipient address format");
       return;
     }
 
@@ -113,45 +187,232 @@ export default function AdminPanel() {
         return;
       }
 
-      // Request account access
-      await (window as any).ethereum.request({ method: "eth_requestAccounts" });
+      // Define BSC configuration up front
+      const BSC_CHAIN_ID = "0x38"; // 56 in decimal
+      const BSC_USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955"; // BEP-20 USDT
 
-      // Initialize provider and signer
+      // Step 1: Request account access
+      console.log("Requesting accounts...");
+      const accounts = await (window as any).ethereum.request({
+        method: "eth_requestAccounts"
+      });
+      const account = accounts[0];
+      console.log("Connected account:", account);
+      toast.success("Wallet connected");
+
+      // Step 2: Check and switch to BSC network
+      console.log("Checking network...");
+      const chainId = await (window as any).ethereum.request({
+        method: "eth_chainId"
+      });
+      console.log("Current chainId:", chainId);
+
+      if (chainId !== BSC_CHAIN_ID) {
+        toast.success("Switching to Binance Smart Chain network...");
+        console.log("Need to switch to BSC...");
+        try {
+          // Try to switch to BSC
+          await (window as any).ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: BSC_CHAIN_ID }],
+          });
+          console.log("Network switched to BSC");
+          toast.success("Switched to Binance Smart Chain");
+        } catch (switchError: any) {
+          console.log("Switch error:", switchError);
+          // If BSC hasn't been added to the wallet yet, add it
+          if (switchError.code === 4902) {
+            toast.success("Adding Binance Smart Chain to your wallet...");
+            try {
+              await (window as any).ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: BSC_CHAIN_ID,
+                  chainName: 'Binance Smart Chain',
+                  nativeCurrency: {
+                    name: 'BNB',
+                    symbol: 'BNB',
+                    decimals: 18
+                  },
+                  rpcUrls: ['https://bsc-dataseed.binance.org/'],
+                  blockExplorerUrls: ['https://bscscan.com']
+                }],
+              });
+              console.log("BSC network added");
+              toast.success("Binance Smart Chain added to your wallet");
+            } catch (addError) {
+              console.error("Failed to add BSC network:", addError);
+              toast.error("Failed to add Binance Smart Chain to your wallet");
+              return;
+            }
+          } else {
+            toast.error("Please manually switch to Binance Smart Chain in your wallet");
+            return;
+          }
+        }
+
+        // Verify chain switch was successful
+        const newChainId = await (window as any).ethereum.request({
+          method: "eth_chainId"
+        });
+        console.log("New chainId after switch:", newChainId);
+
+        if (newChainId !== BSC_CHAIN_ID) {
+          toast.error("Failed to switch to Binance Smart Chain network");
+          return;
+        }
+      }
+
+      // Step 3: Create Web3Provider and connect to BSC
+      console.log("Creating provider for BSC...");
       const provider = new ethers.BrowserProvider((window as any).ethereum);
       const signer = await provider.getSigner();
+      const signerAddress = await signer.getAddress();
+      console.log("Signer address:", signerAddress);
 
-      // USDT contract on Ethereum mainnet
-      const USDT_ADDRESS = "0xdAC17F958D2ee523a2206206994597C13D831ec7";
+      // Step 4: Create contract instance for BSC USDT
+      console.log("Creating contract instance for BSC USDT...");
       const USDT_ABI = [
         "function transfer(address to, uint256 value) public returns (bool)",
-        "function decimals() view returns (uint8)"
+        "function decimals() view returns (uint8)",
+        "function balanceOf(address owner) view returns (uint256)",
+        "function symbol() view returns (string)",
+        "function name() view returns (string)"
       ];
 
-      const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+      const usdtContract = new ethers.Contract(
+        BSC_USDT_ADDRESS,
+        USDT_ABI,
+        signer
+      );
 
-      // Convert amount to smallest unit based on decimals
-      const decimals = await usdtContract.decimals();
-      const parsedAmount = ethers.parseUnits(usdtAmount, decimals);
+      // Step 5: Verify contract and get token info
+      console.log("Verifying token contract...");
+      let tokenSymbol, tokenName;
+      try {
+        tokenSymbol = await usdtContract.symbol();
+        tokenName = await usdtContract.name();
+        console.log("Token info:", tokenName, tokenSymbol);
 
-      // Send the transfer transaction
-      const tx = await usdtContract.transfer(recipient, parsedAmount);
-      toast.success("Transaction submitted!");
+        toast.success(`Connected to ${tokenName} (${tokenSymbol})`);
+      } catch (error) {
+        console.error("Error checking token symbol:", error);
+        toast.error("Error connecting to USDT contract. Make sure you're on BSC network.");
+        return;
+      }
 
-      // Wait for confirmation
-      await tx.wait();
-      toast.success(`Real USDT sent! Tx Hash: ${tx.hash}`);
+      // Step 6: Check BNB balance for gas
+      toast.success("Checking BNB balance for gas fees...");
+      const bnbBalance = await provider.getBalance(signerAddress);
+      const bnbBalanceFormatted = ethers.formatEther(bnbBalance);
+      console.log("BNB balance:", bnbBalanceFormatted);
 
-      // Clear form fields
-      setRecipient("");
-      setUsdtAmount("");
+      const minBnbForGas = ethers.parseEther("0.005"); // 0.005 BNB should be enough for gas
+      if (bnbBalance < minBnbForGas) {
+        toast.error(`Insufficient BNB for gas fees. You have ${bnbBalanceFormatted} BNB, but you need at least 0.005 BNB for transaction fees.`);
+        return;
+      }
+
+      // Step 7: Check user's USDT balance
+      console.log("Checking USDT balance...");
+      try {
+        const decimals = await usdtContract.decimals();
+        console.log("Token decimals:", decimals);
+
+        const balance = await usdtContract.balanceOf(signerAddress);
+        const formattedBalance = ethers.formatUnits(balance, decimals);
+        console.log("USDT balance:", formattedBalance);
+
+        // Format balance with 2 decimal places for display
+        const displayBalance = Number(formattedBalance).toFixed(2);
+        toast.success(`Your ${tokenSymbol} balance: ${displayBalance}`);
+
+        const parsedAmount = ethers.parseUnits(usdtAmount, decimals);
+        console.log("Amount to send (in wei):", parsedAmount.toString());
+
+        if (balance < parsedAmount) {
+          // Calculate how much more USDT the user needs
+          const needed = ethers.formatUnits(parsedAmount - balance, decimals);
+          const neededFormatted = Number(needed).toFixed(2);
+
+          // Show specific error message about insufficient balance
+          toast.error(
+            `Insufficient ${tokenSymbol} balance. You have ${displayBalance} ${tokenSymbol} but you're trying to send ${usdtAmount} ${tokenSymbol}. You need ${neededFormatted} more ${tokenSymbol}.`
+          );
+          return;
+        }
+
+        // Step 8: Send transaction
+        toast.success("Preparing transaction...");
+        console.log("Recipient:", recipient);
+        console.log("Amount:", usdtAmount, tokenSymbol);
+
+        // Try to estimate gas first to catch potential errors
+        try {
+          const gasEstimate = await usdtContract.transfer.estimateGas(recipient, parsedAmount);
+          console.log("Estimated gas:", gasEstimate.toString());
+        } catch (gasError: any) {
+          console.error("Gas estimation failed:", gasError);
+
+          // More informative error based on the specific error
+          if (gasError.message.includes("execution reverted")) {
+            toast.error("Transaction would fail. Check if your balance is sufficient and recipient address is valid.");
+          } else {
+            toast.error(`Gas estimation failed: ${gasError.message}`);
+          }
+          return;
+        }
+
+        toast.success("Sending transaction... Please confirm in your wallet");
+        const tx = await usdtContract.transfer(recipient, parsedAmount);
+        console.log("Transaction sent:", tx.hash);
+        toast.success(`Transaction submitted! Hash: ${tx.hash.slice(0, 10)}...`);
+
+        // Step 9: Wait for confirmation
+        toast.success("Waiting for blockchain confirmation...");
+        console.log("Waiting for confirmation...");
+        const receipt = await tx.wait();
+        console.log("Transaction confirmed:", receipt);
+
+        toast.success(`Success! ${usdtAmount} ${tokenSymbol} sent to ${recipient.slice(0, 6)}...${recipient.slice(-4)}`);
+        toast.success(
+          <div>
+            View on BSCScan: <a href={`https://bscscan.com/tx/${tx.hash}`} target="_blank" rel="noopener noreferrer" className="underline">
+              {tx.hash.slice(0, 10)}...{tx.hash.slice(-8)}
+            </a>
+          </div>,
+          { duration: 10000 }
+        );
+
+        // Clear form
+        setRecipient("");
+        setUsdtAmount("");
+      } catch (error: any) {
+        console.error("USDT operation failed:", error);
+
+        // Handle specific balance errors that might occur during transaction
+        if (error.message.includes("insufficient funds")) {
+          toast.error("Insufficient funds. Check your BNB balance for gas fees.");
+        } else if (error.message.includes("exceeds balance")) {
+          toast.error(`Your ${tokenSymbol} balance is too low for this transaction.`);
+        } else if (error.message.includes("user rejected")) {
+          toast.error("Transaction was rejected in your wallet");
+        } else {
+          toast.error(`Transaction failed: ${error.message}`);
+        }
+      }
     } catch (error: any) {
-      console.error("Transfer error:", error);
-      toast.error("USDT transfer failed: " + error.message);
+      console.error("Overall process failed:", error);
+      toast.error(`Error: ${error.message}`);
     } finally {
       setSendingReal(false);
     }
   };
 
+
+  // ... existing code ...
+
+  // ... existing code ...
   const addBandwidth = async () => {
     if (!selectedUser || !bandwidthAmount) {
       toast.error("Select a user and enter bandwidth amount");
@@ -210,9 +471,7 @@ export default function AdminPanel() {
       <nav className="border-b border-white/10 px-6 py-4">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-              <span className="text-black font-bold">F</span>
-            </div>
+           <img  src="/logo.png" className="h-12"/>
             <span className="font-bold text-xl">FlashUSDT</span>
           </div>
           <div className="flex items-center gap-4">
@@ -404,6 +663,47 @@ export default function AdminPanel() {
                   Send actual USDT using your connected MetaMask or Trust Wallet
                 </CardDescription>
               </CardHeader>
+              {/* Balance Display Section */}
+              <div className="rounded-md border border-zinc-800 bg-zinc-800/30 p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-zinc-300 font-medium">Your Balances</h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={checkBalances}
+                    disabled={checkingBalance}
+                    className="h-8 text-xs"
+                  >
+                    {checkingBalance ? "Checking..." : "Refresh"}
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-md bg-zinc-800 flex flex-col">
+                    <span className="text-zinc-400 text-xs mb-1">BNB (for gas fees)</span>
+                    {bnbBalance ? (
+                      <span className="text-yellow-400 font-medium">{bnbBalance} BNB</span>
+                    ) : (
+                      <span className="text-zinc-500 italic text-sm">Click refresh</span>
+                    )}
+                  </div>
+
+                  <div className="p-3 rounded-md bg-zinc-800 flex flex-col">
+                    <span className="text-zinc-400 text-xs mb-1">USDT (BEP-20)</span>
+                    {usdtBalance ? (
+                      <span className="text-green-400 font-medium">{usdtBalance} USDT</span>
+                    ) : (
+                      <span className="text-zinc-500 italic text-sm">Click refresh</span>
+                    )}
+                  </div>
+                </div>
+
+                {(bnbBalance && parseFloat(bnbBalance) < 0.005) && (
+                  <div className="mt-3 p-2 bg-red-900/20 border border-red-800/30 rounded text-red-400 text-xs">
+                    Warning: Low BNB balance. You need at least 0.005 BNB for gas fees.
+                  </div>
+                )}
+              </div>
               <CardContent className="space-y-4">
                 <Label>Recipient Address</Label>
                 <Input
