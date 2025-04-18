@@ -3,11 +3,11 @@ import connectToDatabase from "@/lib/mongodb";
 import User from "@/models/User";
 import { authenticated } from "@/lib/auth";
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+export async function POST(req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const id = (await params).id
     // Authenticate and check for admin
     const userData = await authenticated(req, true);
     if (!userData.id) {
@@ -29,7 +29,7 @@ export async function POST(
     }
 
     // Find user by ID
-    const user = await User.findById(params.id);
+    const user = await User.findById(id);
     if (!user) {
       return NextResponse.json(
         { success: false, message: "User not found" },
